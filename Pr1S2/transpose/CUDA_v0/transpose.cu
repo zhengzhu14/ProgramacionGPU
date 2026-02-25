@@ -151,33 +151,48 @@ int main(int argc, char **argv)
 
     // TODO: cudaMalloc --HECHO--
     // TODO: cudaMemcpy H2D --HECHO--
-    cudaMalloc(&d_in, n*n*sizeof(float)); //Reservo memeoria para la entrada
+    cudaMalloc(&d_in, n*n*sizeof(float)); //Reservo memoria para la entrada
     cudaMalloc(&d_out, n*n*sizeof(float)); //Reservo memoria para la salida
-    cudaMemcpy(d_in, array2D, n*n*sizeof(float), cudaMemcpyHostToDevice); //Copio los datos del array de host array2D
+    cudaMemcpy(d_in, array1D, n*n*sizeof(float), cudaMemcpyHostToDevice); //Copio los datos del array de host array2D
 
     dim3 dimBlock(NTHREADS1D);
     dim3 dimGrid((n + NTHREADS1D - 1) / NTHREADS1D);
 
-    double tKernel0 = 0.0, tKernel1 = 0.0;
+    //double tKernel0 = 0.0, tKernel1 = 0.0;
 
+    cudaEvent_t start, stop;
+    
+    cudaEventCreate(&start); cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
     // TODO: launch kernel --HECHO--
     transpose_device_v0<<<dimGrid, dimBlock>>>(d_in, d_out, n);
+    cudaEventRecord(stop);
     // TODO: synchronize    --HECHO--
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
+    cudaEventSynchronize(stop);
     
-    // TODO: measure kernel time
-
+    // TODO: measure kernel time --HECHO-- 
+    
     // TODO: cudaMemcpy D2H --HECHO--
-    cudaMemcpy(d_out, array1D_trans_GPU, n*n*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(array1D_trans_GPU, d_out, n*n*sizeof(float), cudaMemcpyDeviceToHost);
 
-    // TODO: compute and print kernel bandwidth
+    // TODO: compute and print kernel bandwidth --HECHO--
+    float ms;
+    cudaEventElapsedTime(&ms, start, stop);
+    float secGpu = ms / 1e3;
+    
+    printf("El ancho de banda del kernel es %f MB/s\n",
+                             ((bytes / secGpu) / (1 << 20))); 
+
+
 
     if (check(array1D_trans_GPU, array1D_trans, n * n))
         printf("Transpose CPU-GPU differs!!\n");
     else
         printf("Check OK\n");
 
-    // TODO: cudaFree
+    // TODO: cudaFree --HECHO--
     cudaFree(d_in); cudaFree(d_out);
 
     free(array2D[0]);       free(array2D);
