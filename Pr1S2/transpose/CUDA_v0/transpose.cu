@@ -153,6 +153,12 @@ int main(int argc, char **argv)
     // TODO: cudaMemcpy H2D --HECHO--
     cudaMalloc(&d_in, n*n*sizeof(float)); //Reservo memoria para la entrada
     cudaMalloc(&d_out, n*n*sizeof(float)); //Reservo memoria para la salida
+    
+    cudaEvent_t start, stop;
+    
+    cudaEventCreate(&start); cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
     cudaMemcpy(d_in, array1D, n*n*sizeof(float), cudaMemcpyHostToDevice); //Copio los datos del array de host array2D
 
     dim3 dimBlock(NTHREADS1D);
@@ -160,22 +166,30 @@ int main(int argc, char **argv)
 
     //double tKernel0 = 0.0, tKernel1 = 0.0;
 
-    cudaEvent_t start, stop;
+    // cudaEvent_t start, stop;
     
-    cudaEventCreate(&start); cudaEventCreate(&stop);
+    // cudaEventCreate(&start); cudaEventCreate(&stop);
 
-    cudaEventRecord(start);
+    // cudaEventRecord(start);
     // TODO: launch kernel --HECHO--
     transpose_device_v0<<<dimGrid, dimBlock>>>(d_in, d_out, n);
-    cudaEventRecord(stop);
-    // TODO: synchronize    --HECHO--
-    //cudaDeviceSynchronize();
-    cudaEventSynchronize(stop);
+
+    cudaCheck(cudaGetLastError(), "cudaGetLastError");
+
+    // cudaEventRecord(stop);
+    // // TODO: synchronize    --HECHO--
+    // //cudaDeviceSynchronize();
+    // cudaEventSynchronize(stop);
     
     // TODO: measure kernel time --HECHO-- 
     
     // TODO: cudaMemcpy D2H --HECHO--
     cudaMemcpy(array1D_trans_GPU, d_out, n*n*sizeof(float), cudaMemcpyDeviceToHost);
+    
+    cudaEventRecord(stop);
+    // TODO: synchronize    --HECHO--
+    //cudaDeviceSynchronize();
+    cudaEventSynchronize(stop);
 
     // TODO: compute and print kernel bandwidth --HECHO--
     float ms;
