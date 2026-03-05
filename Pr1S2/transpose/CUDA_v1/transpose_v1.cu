@@ -106,7 +106,6 @@ __global__ void transpose_device_v1(const float *in, float *out, int n)
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     if (row < n && col < n){
         out[col*n + row] = in[row*n + col];
-
     }
 }
 
