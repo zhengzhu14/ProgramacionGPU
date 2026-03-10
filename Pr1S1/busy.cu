@@ -1,4 +1,8 @@
 // busy . cu : kernel deliberadamente costoso para mantener la GPU ocupada
+
+//Ejercicio 1 parte B
+
+
 # include <cstdio>
 # include <cmath>
 # include <cuda_runtime.h>

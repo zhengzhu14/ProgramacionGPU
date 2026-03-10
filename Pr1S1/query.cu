@@ -1,3 +1,5 @@
+//Ejercicio 1 parte C
+
 # include <cstdio>
 # include <cmath>
 # include <cuda_runtime.h>
@@ -15,8 +17,8 @@ int main (int argc, char**argv){
 
         printf("Numero de SMs: %d\n", p.multiProcessorCount);
         printf("El tamanyo del warp es: %d\n", p.warpSize);
-        printf("Memoria global total: %d\n", p.totalGlobalMem);
-        printf("Memoria compartida por bloque: %d\n", p.sharedMemPerBlock);
+        printf("Memoria global total: %ld\n", p.totalGlobalMem);
+        printf("Memoria compartida por bloque: %ld\n", p.sharedMemPerBlock);
         printf("Registros por bloque: %d\n", p.regsPerBlock);
         printf("Maximo de hilos por bloque: %d\n", p.maxThreadsPerBlock);
         printf("Maximo de hilos por SM: %d\n", p.maxThreadsPerMultiProcessor);
