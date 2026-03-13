@@ -5,7 +5,7 @@
 #define BLOCK_SIZE 16 
 
 // Forward declaration of the device multiplication function
-__global__ void Muld(float*, float*, int, int, float*);
+__global__ void Muld(float*, float*, int, int, int, float*);
 
 // Host multiplication function
 // Compute C = A * B
@@ -50,9 +50,17 @@ void Mul___(float* A, float* B, int hA, int wA, int wB, float* C)
 	cudaFree(Cd);
 }
 
-__global__ void Muld(float* A, float* B, int hA, int wA, int wB, float* C)
+__global__ void Muld ( float * A , float * B ,int hA , int wA , int wB ,float * C )
 {
-	//TODO
+	int col = blockIdx . x * blockDim . x + threadIdx . x ;
+	int row = blockIdx . y * blockDim . y + threadIdx . y ;
+	if ( row < hA && col < wB ) {
+		float acc = 0.0f ;
+		for ( int k = 0; k < wA ; k ++) {
+			acc += A[row*wA + k]*B[k*wB + col];
+		}
+		C [row*wB + col] = acc;
+	}
 }
 
 #if 0
