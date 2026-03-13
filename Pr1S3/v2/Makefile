@@ -19,7 +19,7 @@ SRC =  main.o matrix_mul.o
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 matrix_mul: $(SRC) 
-	$(CC) -o matrix_mult  $(SRC) $(CXXFLAGS) $(LIBS) 
+	$(CC) -o matrix_mult.out  $(SRC) $(CXXFLAGS) $(LIBS) 
 
 clean:
 	rm -f *.o matrix_mult
