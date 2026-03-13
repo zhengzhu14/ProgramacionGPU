@@ -35,8 +35,8 @@ void Mul___(float* A, float* B, int hA, int wA, int wB, float* C)
 
 	// Compute the execution configuration assuming
 	// the matrix dimensions are multiples of BLOCK_SIZE
-	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
-	dim3 dimGrid(wB / dimBlock.x, hA / dimBlock.y);
+	dim3 dimBlock(1, 1);
+	dim3 dimGrid(1, 1);
 
 	// Launch the device computation
 	Muld<<<dimGrid, dimBlock>>>(Ad, Bd, hA, wA, wB, Cd);
@@ -56,10 +56,10 @@ __global__ void Muld(float* A, float* B, int hA, int wA, int wB, float* C)
 		for ( int col = 0; col < wB ; col ++) {
 			float acc = 0.0f;
 			for ( int k = 0; k < wA ; k ++) {
-				acc += A[row*hA + col]*B[col*wB + k];
+				acc += A[row*wA + k]*B[k*wB + col];
 			}
 			
-			C[row*hA + col] = acc;
+			C[row*wB + col] = acc;
 		}
 	}			
 }
