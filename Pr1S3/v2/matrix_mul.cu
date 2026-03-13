@@ -4,6 +4,8 @@
 // Thread block size
 #define BLOCK_SIZE 16 
 
+int numTiles = 0;
+
 // Forward declaration of the device multiplication function
 __global__ void Muld(float*, float*, int, int, float*);
 
@@ -38,6 +40,9 @@ void Mul___(float* A, float* B, int hA, int wA, int wB, float* C)
 	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
 	dim3 dimGrid(wB / dimBlock.x, hA / dimBlock.y);
 
+	numTiles = wA/BLOCK_SIZE;
+
+
 	// Launch the device computation
 	Muld<<<dimGrid, dimBlock>>>(Ad, Bd, hA, wA, wB, Cd);
 
@@ -50,10 +55,31 @@ void Mul___(float* A, float* B, int hA, int wA, int wB, float* C)
 	cudaFree(Cd);
 }
 
-__global__ void Muld(float* A, float* B, int hA, int wA, int wB, float* C)
+__global__ void Muld ( float * A, float * B, int hA, int wA, int wB, float * C)
 {
-	//TODO
+	int tx = threadIdx.x ;
+	int ty = threadIdx.y ;
+	int col = blockIdx.x*BLOCK_SIZE + tx;
+	int row = blockIdx.y*BLOCK_SIZE + ty;
+	__shared__ float As [ BLOCK_SIZE ][ BLOCK_SIZE ];
+	__shared__ float Bs [ BLOCK_SIZE ][ BLOCK_SIZE ];
+	float acc = 0.0f ;
+	for ( int t = 0; t < numTiles; t ++) {
+		// Cargar
+		As[ty][tx] = A[row*wA + t*BLOCK_SIZE + tx];
+		Bs[ty][tx] = B[(ty + t*BLOCK_SIZE)*wB + col]; 
+		__syncthreads(); //Sincronizo
+
+		//Operar Multiplico cada bloque
+		for (int i = 0; i <  BLOCK_SIZE; ++i){
+			acc += As[ty][i]*Bs[i][tx];
+		}
+		__syncthreads();
+	}
+	if ( row < hA && col < wB )
+		C[row*wB + col ] = acc ;
 }
+
 
 #if 0
 // Device multiplication function called by Mul()
