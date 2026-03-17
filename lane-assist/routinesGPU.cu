@@ -252,7 +252,7 @@ __global__ void hysteresis_thresholding(float* iG, uint8_t* ipedge, uint8_t* oim
 }
 
 void canny(uint8_t *im, uint8_t *image_out,float level,
-	int height, int width, float* G, uint8_t* pedge, float* NR, float *phi )
+	int height, int width)
 {	
 
 	int i, j;
@@ -325,21 +325,6 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 
 
 }
-
-		// for(i=3; i<height-3; i++)
-		// for(j=3; j<width-3; j++)
-		// {
-		// 	image_out[i*width+j] = 0;
-		// 	if(G[i*width+j]>hithres && pedge[i*width+j])
-		// 		image_out[i*width+j] = 255;
-		// 	else if(pedge[i*width+j] && G[i*width+j]>=lowthres && G[i*width+j]<hithres)
-		// 		// check neighbours 3x3
-		// 		for (ii=-1;ii<=1; ii++)
-		// 			for (jj=-1;jj<=1; jj++)
-		// 				if (G[(i+ii)*width+j+jj]>hithres)
-		// 					image_out[i*width+j] = 255;
-		// }
-
 
 
 void houghtransform(uint8_t *im, int width, int height, uint32_t *accumulators, int accu_width, int accu_height, 
@@ -452,7 +437,7 @@ void lane_assist_GPU(uint8_t *im, int height, int width,
 
 	/* Canny */
 	canny(im, imEdge, 1000.0f, //level
-		height, width , G, pedge, NR, phi);
+		height, width);
 
 
 	
