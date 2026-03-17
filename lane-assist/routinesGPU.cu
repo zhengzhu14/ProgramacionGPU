@@ -12,6 +12,10 @@
 #define EDGE_RAD 3
 
 #define NOISE_SHARED (BLOCK_SIZE + 2*NOISE_RED)
+#define GRADIENT_SHARED (BLOCK_SIZE + 2*GRADIENT)
+
+
+#define PI 3.141593
 
 __global__ void noise_red(uint8_t *im, float* oNR, int height, int width){
 	__shared__ float ims[NOISE_SHARED][NOISE_SHARED]; //Tamanyo (BLOCK_SIZE + 4)*(BLOCK_SIZE + 4)
@@ -49,7 +53,7 @@ __global__ void noise_red(uint8_t *im, float* oNR, int height, int width){
 	}
 	__syncthreads();
 
-	if(row >= 2 && row < height - 2 && col >= 2 && col < width - 2){
+	if(row >= NOISE_RED && row < height - NOISE_RED && col >= NOISE_RED && col < width - NOISE_RED){
 		int sx = threadIdx.x + NOISE_RED;
 		int sy = threadIdx.y + NOISE_RED;
 		float sum = 0.0;
@@ -67,7 +71,80 @@ __global__ void noise_red(uint8_t *im, float* oNR, int height, int width){
 
 }
 
-__global__ void intensityGradient (){
+
+
+__global__ void intensityGradient (float* iNR, float *ophi, float *oG, int height, int width){
+	__shared__ float nrs[GRADIENT_SHARED][GRADIENT_SHARED]; //Tamanyo (BLOCK_SIZE + 4)*(BLOCK_SIZE + 4)
+
+	float Gx, Gy;
+	float phi;
+
+	int row = blockIdx.y*BLOCK_SIZE + threadIdx.y;
+	int col = blockIdx.x*BLOCK_SIZE + threadIdx.x;
+	
+	int thread_id = threadIdx.y*BLOCK_SIZE + threadIdx.x;
+
+	int total_shared = GRADIENT_SHARED*GRADIENT_SHARED;
+
+
+	for (int i = thread_id; i < total_shared; i+=BLOCK_SIZE*BLOCK_SIZE){
+		//De esta manera hago que hilos consecutivos lean posiciones consecutivas.
+		//Posiciones dentro de la matriz shared
+		int srow = i/GRADIENT_SHARED;
+		int scol = i%GRADIENT_SHARED;
+
+
+		//Obtengo la posicion absoluta de la memoria global
+		int gx = blockIdx.x*BLOCK_SIZE + scol - GRADIENT;
+		int gy = blockIdx.y*BLOCK_SIZE + srow - GRADIENT;
+
+		//Las posiciones que se salen de rango, de esta manera simplemente
+		//copio los valores de los bordes para extenderlo
+		gx = max(0, min(gx, width - 1));
+		gy = max(0, min(gy, height - 1));
+
+		nrs[srow][scol] = iNR[gy*width + gx];
+
+	}
+	__syncthreads();
+
+	if(row >= GRADIENT && row < height - GRADIENT && col >= GRADIENT && col < width - GRADIENT){
+		int sx = threadIdx.x + GRADIENT;
+		int sy = threadIdx.y + GRADIENT;
+
+		Gx = 
+			(1.0*nrs[sy-2][sx-2] +  2.0*nrs[sy-2][sx-1] +  (-2.0)*nrs[sy-2][sx+1] + (-1.0)*nrs[sy-2][sx+2]
+			+ 4.0*nrs[sy-1][sx-2] +  8.0*nrs[sy-1][sx-1] +  (-8.0)*nrs[sy-1][sx+1] + (-4.0)*nrs[sy-1][sx+2]
+			+ 6.0*nrs[sy][sx-2] + 12.0*nrs[sy][sx-1] + (-12.0)*nrs[sy][sx+1] + (-6.0)*nrs[sy][sx+2]
+			+ 4.0*nrs[sy+1][sx-2] +  8.0*nrs[sy+1][sx-1] +  (-8.0)*nrs[sy+1][sx+1] + (-4.0)*nrs[sy+1][sx+2]
+			+ 1.0*nrs[sy+2][sx-2] +  2.0*nrs[sy+2][sx-1] +  (-2.0)*nrs[sy+2][sx+1] + (-1.0)*nrs[sy+2][sx+2]);
+
+		Gy = 
+			((-1.0)*nrs[sy-2][sx-2] + (-4.0)*nrs[sy-2][sx-1] +  (-6.0)*nrs[sy-2][sx] + (-4.0)*nrs[sy-2][sx+1] + (-1.0)*nrs[sy-2][sx+2]
+			+ (-2.0)*nrs[sy-1][sx-2] + (-8.0)*nrs[sy-1][sx-1] + (-12.0)*nrs[sy-1][sx] + (-8.0)*nrs[sy-1][sx+1] + (-2.0)*nrs[sy-1][sx+2]
+			+    2.0*nrs[sy+1][sx-2] +    8.0*nrs[sy+1][sx-1] +    12.0*nrs[sy+1][sx] +    8.0*nrs[sy+1][sx+1] +    2.0*nrs[sy+1][sx+2]
+			+    1.0*nrs[sy+2][sx-2] +    4.0*nrs[sy+2][sx-1] +     6.0*nrs[sy+2][sx] +    4.0*nrs[sy+2][sx+1] +    1.0*nrs[sy+2][sx+2]);
+
+
+		oG[row*width + col] = sqrtf((Gx*Gx)+(Gy*Gy));
+		phi = atan2f(fabs(Gy),fabs(Gx));
+		float val = fabs(phi);
+
+		//Como los valores de angulos pueden ser
+		/*
+		Si phi <= PI/8, en result no se suma nada
+		Si phi > PI/8, (val > PI/8)*45.0 = 45 por lo que se suma 45
+		Idem para cada caso.
+		*/
+		float result = (val > PI/8)*45.0
+					 + (val > 3*(PI/8))*45.0
+					 + (val > 5*(PI/8))*45.0;
+
+		//Para el ultimo caso si sube de 7*(PI/8) result vale 0.
+		result*= (val <= 7*(PI/8));
+
+		ophi[row*width + col] = result;
+	}
 
 }
 
@@ -87,7 +164,7 @@ void canny(uint8_t *im, uint8_t *image_out,
 
 	int i, j;
 	int ii, jj;
-	float PI = 3.141593;
+	//float PI = 3.141593;
 
 	float lowthres, hithres;
 
@@ -106,42 +183,26 @@ void canny(uint8_t *im, uint8_t *image_out,
 
 	cudaDeviceSynchronize(); //Sincronizo
 
-	cudaMemcpy(NR, oNR, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
+	//cudaMemcpy(NR, oNR, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
 
-	cudaFree(oNR);
-
-
-	for(i=2; i<height-2; i++)
-		for(j=2; j<width-2; j++)
-		{
-			// Intensity gradient of the image
-			Gx[i*width+j] = 
-				 (1.0*NR[(i-2)*width+(j-2)] +  2.0*NR[(i-2)*width+(j-1)] +  (-2.0)*NR[(i-2)*width+(j+1)] + (-1.0)*NR[(i-2)*width+(j+2)]
-				+ 4.0*NR[(i-1)*width+(j-2)] +  8.0*NR[(i-1)*width+(j-1)] +  (-8.0)*NR[(i-1)*width+(j+1)] + (-4.0)*NR[(i-1)*width+(j+2)]
-				+ 6.0*NR[(i  )*width+(j-2)] + 12.0*NR[(i  )*width+(j-1)] + (-12.0)*NR[(i  )*width+(j+1)] + (-6.0)*NR[(i  )*width+(j+2)]
-				+ 4.0*NR[(i+1)*width+(j-2)] +  8.0*NR[(i+1)*width+(j-1)] +  (-8.0)*NR[(i+1)*width+(j+1)] + (-4.0)*NR[(i+1)*width+(j+2)]
-				+ 1.0*NR[(i+2)*width+(j-2)] +  2.0*NR[(i+2)*width+(j-1)] +  (-2.0)*NR[(i+2)*width+(j+1)] + (-1.0)*NR[(i+2)*width+(j+2)]);
+	//cudaFree(oNR);
 
 
-			Gy[i*width+j] = 
-				 ((-1.0)*NR[(i-2)*width+(j-2)] + (-4.0)*NR[(i-2)*width+(j-1)] +  (-6.0)*NR[(i-2)*width+(j)] + (-4.0)*NR[(i-2)*width+(j+1)] + (-1.0)*NR[(i-2)*width+(j+2)]
-				+ (-2.0)*NR[(i-1)*width+(j-2)] + (-8.0)*NR[(i-1)*width+(j-1)] + (-12.0)*NR[(i-1)*width+(j)] + (-8.0)*NR[(i-1)*width+(j+1)] + (-2.0)*NR[(i-1)*width+(j+2)]
-				+    2.0*NR[(i+1)*width+(j-2)] +    8.0*NR[(i+1)*width+(j-1)] +    12.0*NR[(i+1)*width+(j)] +    8.0*NR[(i+1)*width+(j+1)] +    2.0*NR[(i+1)*width+(j+2)]
-				+    1.0*NR[(i+2)*width+(j-2)] +    4.0*NR[(i+2)*width+(j-1)] +     6.0*NR[(i+2)*width+(j)] +    4.0*NR[(i+2)*width+(j+1)] +    1.0*NR[(i+2)*width+(j+2)]);
+	float *ophi;
+	float *oG;
+	cudaMalloc(&ophi, sizeof(float) * width * height);
+	cudaMalloc(&oG, sizeof(float) * width * height);
 
-			G[i*width+j]   = sqrtf((Gx[i*width+j]*Gx[i*width+j])+(Gy[i*width+j]*Gy[i*width+j]));	//G = √Gx²+Gy²
-			phi[i*width+j] = atan2f(fabs(Gy[i*width+j]),fabs(Gx[i*width+j]));
+	intensityGradient<<<dimGrid, dimBlock>>>(oNR, ophi, oG, height, width);
 
-			if(fabs(phi[i*width+j])<=PI/8 )
-				phi[i*width+j] = 0;
-			else if (fabs(phi[i*width+j])<= 3*(PI/8))
-				phi[i*width+j] = 45;
-			else if (fabs(phi[i*width+j]) <= 5*(PI/8))
-				phi[i*width+j] = 90;
-			else if (fabs(phi[i*width+j]) <= 7*(PI/8))
-				phi[i*width+j] = 135;
-			else phi[i*width+j] = 0;
-	}
+	cudaDeviceSynchronize(); //Sincronizo
+
+	cudaMemcpy(phi, ophi, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
+	cudaMemcpy(G, oG, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
+
+	cudaFree(oNR); //Libero este espacio de memoria que no se va a usar mas
+	
+
 
 	// Edge
 	for(i=3; i<height-3; i++)
