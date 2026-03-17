@@ -96,5 +96,5 @@ int main(int argc, char **argv)
 
 	draw_lines(imtmp, width, height, x1, y1, x2, y2, nlines);
 
-	write_png_fileRGB("out0.png", imtmp, width, height);
+	write_png_fileRGB("out2.png", imtmp, width, height);
 }

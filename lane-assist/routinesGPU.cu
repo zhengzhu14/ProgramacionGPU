@@ -10,9 +10,12 @@
 #define NOISE_RED 2
 #define GRADIENT 2
 #define EDGE_RAD 3
+#define HYSTHRES_RAD 3
 
 #define NOISE_SHARED (BLOCK_SIZE + 2*NOISE_RED)
 #define GRADIENT_SHARED (BLOCK_SIZE + 2*GRADIENT)
+#define EDGE_SHARED (BLOCK_SIZE + 2)
+#define HYSTHRES_SHARED (BLOCK_SIZE + 2)
 
 
 #define PI 3.141593
@@ -58,20 +61,18 @@ __global__ void noise_red(uint8_t *im, float* oNR, int height, int width){
 		int sy = threadIdx.y + NOISE_RED;
 		float sum = 0.0;
 
-		sum = (2.0*ims[sy - 2][sx-2] +  4.0*ims[sy - 2][sx-1] +  5.0*ims[sy - 2][sx] +  4.0*ims[sy - 2][sx+1] + 2.0*ims[sy - 2][sx+2]
-				+ 4.0*ims[sy - 1][sx-2] +  9.0*ims[sy - 1][sx-1] + 12.0*ims[sy - 1][sx] +  9.0*ims[sy - 1][sx+1] + 4.0*ims[sy - 1][sx+2]
-				+ 5.0*ims[sy ][sx-2] + 12.0*ims[sy ][sx-1] + 15.0*ims[sy ][sx] + 12.0*ims[sy ][sx+1] + 5.0*ims[sy ][sx+2]
-				+ 4.0*ims[sy + 1][sx-2] +  9.0*ims[sy + 1][sx-1] + 12.0*ims[sy + 1][sx] +  9.0*ims[sy + 1][sx+1] + 4.0*ims[sy + 1][sx+2]
-				+ 2.0*ims[sy + 2][sx-2] +  4.0*ims[sy + 2][sx-1] +  5.0*ims[sy + 2][sx] +  4.0*ims[sy + 2][sx+1] + 2.0*ims[sy + 2][sx+2])
-				/159.0;
+		sum = (2.0f*ims[sy - 2][sx-2] +  4.0f*ims[sy - 2][sx-1] +  5.0f*ims[sy - 2][sx] +  4.0f*ims[sy - 2][sx+1] + 2.0f*ims[sy - 2][sx+2]
+				+ 4.0f*ims[sy - 1][sx-2] +  9.0f*ims[sy - 1][sx-1] + 12.0f*ims[sy - 1][sx] +  9.0f*ims[sy - 1][sx+1] + 4.0f*ims[sy - 1][sx+2]
+				+ 5.0f*ims[sy ][sx-2] + 12.0f*ims[sy ][sx-1] + 15.0f*ims[sy ][sx] + 12.0f*ims[sy ][sx+1] + 5.0f*ims[sy ][sx+2]
+				+ 4.0f*ims[sy + 1][sx-2] +  9.0f*ims[sy + 1][sx-1] + 12.0f*ims[sy + 1][sx] +  9.0f*ims[sy + 1][sx+1] + 4.0f*ims[sy + 1][sx+2]
+				+ 2.0f*ims[sy + 2][sx-2] +  4.0f*ims[sy + 2][sx-1] +  5.0f*ims[sy + 2][sx] +  4.0f*ims[sy + 2][sx+1] + 2.0f*ims[sy + 2][sx+2])
+				/159.0f;
 
 		
 		oNR[row*width + col] = sum;
 	}
 
 }
-
-
 
 __global__ void intensityGradient (float* iNR, float *ophi, float *oG, int height, int width){
 	__shared__ float nrs[GRADIENT_SHARED][GRADIENT_SHARED]; //Tamanyo (BLOCK_SIZE + 4)*(BLOCK_SIZE + 4)
@@ -113,17 +114,17 @@ __global__ void intensityGradient (float* iNR, float *ophi, float *oG, int heigh
 		int sy = threadIdx.y + GRADIENT;
 
 		Gx = 
-			(1.0*nrs[sy-2][sx-2] +  2.0*nrs[sy-2][sx-1] +  (-2.0)*nrs[sy-2][sx+1] + (-1.0)*nrs[sy-2][sx+2]
-			+ 4.0*nrs[sy-1][sx-2] +  8.0*nrs[sy-1][sx-1] +  (-8.0)*nrs[sy-1][sx+1] + (-4.0)*nrs[sy-1][sx+2]
-			+ 6.0*nrs[sy][sx-2] + 12.0*nrs[sy][sx-1] + (-12.0)*nrs[sy][sx+1] + (-6.0)*nrs[sy][sx+2]
-			+ 4.0*nrs[sy+1][sx-2] +  8.0*nrs[sy+1][sx-1] +  (-8.0)*nrs[sy+1][sx+1] + (-4.0)*nrs[sy+1][sx+2]
-			+ 1.0*nrs[sy+2][sx-2] +  2.0*nrs[sy+2][sx-1] +  (-2.0)*nrs[sy+2][sx+1] + (-1.0)*nrs[sy+2][sx+2]);
+			(1.0f*nrs[sy-2][sx-2] +  2.0f*nrs[sy-2][sx-1] +  (-2.0f)*nrs[sy-2][sx+1] + (-1.0f)*nrs[sy-2][sx+2]
+			+ 4.0f*nrs[sy-1][sx-2] +  8.0f*nrs[sy-1][sx-1] +  (-8.0f)*nrs[sy-1][sx+1] + (-4.0f)*nrs[sy-1][sx+2]
+			+ 6.0f*nrs[sy][sx-2] + 12.0f*nrs[sy][sx-1] + (-12.0f)*nrs[sy][sx+1] + (-6.0f)*nrs[sy][sx+2]
+			+ 4.0f*nrs[sy+1][sx-2] +  8.0f*nrs[sy+1][sx-1] +  (-8.0f)*nrs[sy+1][sx+1] + (-4.0f)*nrs[sy+1][sx+2]
+			+ 1.0f*nrs[sy+2][sx-2] +  2.0f*nrs[sy+2][sx-1] +  (-2.0f)*nrs[sy+2][sx+1] + (-1.0f)*nrs[sy+2][sx+2]);
 
 		Gy = 
-			((-1.0)*nrs[sy-2][sx-2] + (-4.0)*nrs[sy-2][sx-1] +  (-6.0)*nrs[sy-2][sx] + (-4.0)*nrs[sy-2][sx+1] + (-1.0)*nrs[sy-2][sx+2]
-			+ (-2.0)*nrs[sy-1][sx-2] + (-8.0)*nrs[sy-1][sx-1] + (-12.0)*nrs[sy-1][sx] + (-8.0)*nrs[sy-1][sx+1] + (-2.0)*nrs[sy-1][sx+2]
-			+    2.0*nrs[sy+1][sx-2] +    8.0*nrs[sy+1][sx-1] +    12.0*nrs[sy+1][sx] +    8.0*nrs[sy+1][sx+1] +    2.0*nrs[sy+1][sx+2]
-			+    1.0*nrs[sy+2][sx-2] +    4.0*nrs[sy+2][sx-1] +     6.0*nrs[sy+2][sx] +    4.0*nrs[sy+2][sx+1] +    1.0*nrs[sy+2][sx+2]);
+			((-1.0f)*nrs[sy-2][sx-2] + (-4.0f)*nrs[sy-2][sx-1] +  (-6.0f)*nrs[sy-2][sx] + (-4.0f)*nrs[sy-2][sx+1] + (-1.0f)*nrs[sy-2][sx+2]
+			+ (-2.0f)*nrs[sy-1][sx-2] + (-8.0f)*nrs[sy-1][sx-1] + (-12.0f)*nrs[sy-1][sx] + (-8.0f)*nrs[sy-1][sx+1] + (-2.0f)*nrs[sy-1][sx+2]
+			+    2.0f*nrs[sy+1][sx-2] +    8.0f*nrs[sy+1][sx-1] +    12.0f*nrs[sy+1][sx] +    8.0f*nrs[sy+1][sx+1] +    2.0f*nrs[sy+1][sx+2]
+			+    1.0f*nrs[sy+2][sx-2] +    4.0f*nrs[sy+2][sx-1] +     6.0f*nrs[sy+2][sx] +    4.0f*nrs[sy+2][sx+1] +    1.0f*nrs[sy+2][sx+2]);
 
 
 		oG[row*width + col] = sqrtf((Gx*Gx)+(Gy*Gy));
@@ -148,18 +149,110 @@ __global__ void intensityGradient (float* iNR, float *ophi, float *oG, int heigh
 
 }
 
-__global__ void getEdges(){
+__global__ void getEdges(float* iG, float* iphi, uint8_t* opedge, int height, int width){
+	__shared__ float igs[EDGE_SHARED][EDGE_SHARED];
+	//__shared__ float iphis[EDGE_SHARED][EDGE_SHARED];
 
-}
+	int row = blockIdx.y*BLOCK_SIZE + threadIdx.y;
+	int col = blockIdx.x*BLOCK_SIZE + threadIdx.x;
 
-__global__ void hysteresis_thresholding(){
+	int thread_id = threadIdx.y*BLOCK_SIZE + threadIdx.x;
+	int total_shared = EDGE_SHARED*EDGE_SHARED;
+
+	//Cargo los datos
+	for (int i = thread_id; i < total_shared; i+=BLOCK_SIZE*BLOCK_SIZE){
+		//De esta manera hago que hilos consecutivos lean posiciones consecutivas.
+		//Posiciones dentro de la matriz shared
+		int srow = i/EDGE_SHARED;
+		int scol = i%EDGE_SHARED;
+
+
+		//Obtengo la posicion absoluta de la memoria global
+		int gx = blockIdx.x*BLOCK_SIZE + scol - 1;
+		int gy = blockIdx.y*BLOCK_SIZE + srow - 1;
+
+		//Las posiciones que se salen de rango, de esta manera simplemente
+		//copio los valores de los bordes para extenderlo
+		gx = max(0, min(gx, width - 1));
+		gy = max(0, min(gy, height - 1));
+
+		igs[srow][scol] = iG[gy*width + gx];
+		//iphis[srow][scol] = iphi[gy*width + gx];
+	}
+	__syncthreads();
 	
+	if(row >= EDGE_RAD && row < height - EDGE_RAD && col >= EDGE_RAD && col < width - EDGE_RAD){
+		int sx = threadIdx.x + 1;
+		int sy = threadIdx.y + 1;
+
+		float gij = igs[sy][sx];
+		//float phi_ij = iphis[sy][sx];
+		float phi_ij = iphi[row*width + col];
+		float pedge = 0;
+
+		pedge = (phi_ij == 0 && gij > igs[sy][sx + 1] && gij > igs[sy][sx - 1])
+				|| (phi_ij == 45 && gij > igs[sy + 1][sx + 1] && gij > igs[sy - 1][sx - 1])
+				|| (phi_ij == 90 && gij > igs[sy + 1][sx] && gij > igs[sy - 1][sx])
+				|| (phi_ij == 135 && gij > igs[sy + 1][sx - 1] && gij > igs[sy - 1][sx + 1]);
+
+		opedge[row*width + col] = pedge;
+	}
+
 }
 
-void canny(uint8_t *im, uint8_t *image_out,
-	float *NR, float *G, float *phi, float *Gx, float *Gy, uint8_t *pedge,
-	float level,
-	int height, int width)
+__global__ void hysteresis_thresholding(float* iG, uint8_t* ipedge, uint8_t* oimage_out, int height, int width, 
+	float lowthres, float hithres){
+	__shared__ float igs[HYSTHRES_SHARED][HYSTHRES_SHARED];
+
+	int row = blockIdx.y*BLOCK_SIZE + threadIdx.y;
+	int col = blockIdx.x*BLOCK_SIZE + threadIdx.x;
+
+	int thread_id = threadIdx.y*BLOCK_SIZE + threadIdx.x;
+	int total_shared = HYSTHRES_SHARED*HYSTHRES_SHARED;
+
+	for (int i = thread_id; i < total_shared; i+=BLOCK_SIZE*BLOCK_SIZE){
+		//De esta manera hago que hilos consecutivos lean posiciones consecutivas.
+		//Posiciones dentro de la matriz shared
+		int srow = i/HYSTHRES_SHARED;
+		int scol = i%HYSTHRES_SHARED;
+		//Obtengo la posicion absoluta de la memoria global
+		int gx = blockIdx.x*BLOCK_SIZE + scol - 1;
+		int gy = blockIdx.y*BLOCK_SIZE + srow - 1;
+
+		//Las posiciones que se salen de rango, de esta manera simplemente
+		//copio los valores de los bordes para extenderlo
+		gx = max(0, min(gx, width - 1));
+		gy = max(0, min(gy, height - 1));
+
+		igs[srow][scol] = iG[gy*width + gx];
+	}
+	__syncthreads();
+
+	if (row >= HYSTHRES_RAD && row < height - HYSTHRES_RAD && col >= HYSTHRES_RAD && col < width - HYSTHRES_RAD){
+		int sx = threadIdx.x + 1;
+		int sy = threadIdx.y + 1;
+
+		
+		uint8_t imo = 0;
+		float g = igs[sy][sx];
+		float pedge = ipedge[row*width + col];
+
+		imo = 255*(g > hithres && pedge);
+
+		imo+= 255*(!(g > hithres && pedge) && 
+				(pedge && g >=lowthres && g<hithres) &&
+				((igs[sy-1][sx-1] > hithres) || (igs[sy-1][sx]>hithres) || (igs[sy-1][sx+1])
+				|| (igs[sy][sx-1]> hithres) || (igs[sy][sx]> hithres) || (igs[sy][sx+1]> hithres)
+				|| (igs[sy + 1][sx-1]> hithres) || (igs[sy+1][sx]> hithres) || (igs[sy+1][sx+1]> hithres)));
+
+		oimage_out[row*width + col] = imo;
+
+	}
+
+}
+
+void canny(uint8_t *im, uint8_t *image_out,float level,
+	int height, int width/*, float* G, uint8_t* pedge*/)
 {	
 
 	int i, j;
@@ -168,6 +261,8 @@ void canny(uint8_t *im, uint8_t *image_out,
 
 	float lowthres, hithres;
 
+
+	//Reduccion de ruido
 	//Matriz de salida
 	float* oNR;
 	cudaMalloc((void**)&oNR, sizeof(float)* width * height);
@@ -187,7 +282,7 @@ void canny(uint8_t *im, uint8_t *image_out,
 
 	//cudaFree(oNR);
 
-
+	//Intensidad de Gradiente
 	float *ophi;
 	float *oG;
 	cudaMalloc(&ophi, sizeof(float) * width * height);
@@ -197,53 +292,56 @@ void canny(uint8_t *im, uint8_t *image_out,
 
 	cudaDeviceSynchronize(); //Sincronizo
 
-	cudaMemcpy(phi, ophi, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
-	cudaMemcpy(G, oG, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
-
 	cudaFree(oNR); //Libero este espacio de memoria que no se va a usar mas
+
+	// cudaMemcpy(phi, ophi, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
+	// cudaMemcpy(G, oG, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
+
+	uint8_t *opedge;
+	cudaMalloc(&opedge, sizeof(uint8_t) * width * height);
+
+	getEdges<<<dimGrid, dimBlock>>>(oG, ophi, opedge, height, width);
+
+	cudaDeviceSynchronize();
 	
+	cudaFree(ophi); //Libero memoria no usada
 
-
-	// Edge
-	for(i=3; i<height-3; i++)
-		for(j=3; j<width-3; j++)
-		{
-			pedge[i*width+j] = 0;
-			if(phi[i*width+j] == 0){
-				if(G[i*width+j]>G[i*width+j+1] && G[i*width+j]>G[i*width+j-1]) //edge is in N-S
-					pedge[i*width+j] = 1;
-
-			} else if(phi[i*width+j] == 45) {
-				if(G[i*width+j]>G[(i+1)*width+j+1] && G[i*width+j]>G[(i-1)*width+j-1]) // edge is in NW-SE
-					pedge[i*width+j] = 1;
-
-			} else if(phi[i*width+j] == 90) {
-				if(G[i*width+j]>G[(i+1)*width+j] && G[i*width+j]>G[(i-1)*width+j]) //edge is in E-W
-					pedge[i*width+j] = 1;
-
-			} else if(phi[i*width+j] == 135) {
-				if(G[i*width+j]>G[(i+1)*width+j-1] && G[i*width+j]>G[(i-1)*width+j+1]) // edge is in NE-SW
-					pedge[i*width+j] = 1;
-			}
-		}
+	// cudaMemcpy(G, oG, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
+	// cudaMemcpy(pedge, opedge, sizeof(uint8_t) * width * height, cudaMemcpyDeviceToHost);
 
 	// Hysteresis Thresholding
 	lowthres = level/2;
 	hithres  = 2*(level);
 
-	for(i=3; i<height-3; i++)
-		for(j=3; j<width-3; j++)
-		{
-			image_out[i*width+j] = 0;
-			if(G[i*width+j]>hithres && pedge[i*width+j])
-				image_out[i*width+j] = 255;
-			else if(pedge[i*width+j] && G[i*width+j]>=lowthres && G[i*width+j]<hithres)
-				// check neighbours 3x3
-				for (ii=-1;ii<=1; ii++)
-					for (jj=-1;jj<=1; jj++)
-						if (G[(i+ii)*width+j+jj]>hithres)
-							image_out[i*width+j] = 255;
-		}
+	uint8_t *oimage_out;
+	cudaMalloc(&oimage_out, sizeof(uint8_t) * width * height);
+
+	hysteresis_thresholding<<<dimGrid, dimBlock>>>(oG, opedge, oimage_out, height, width,
+												lowthres, hithres);
+
+	cudaDeviceSynchronize();
+
+	cudaMemcpy(image_out, oimage_out, sizeof(uint8_t) * width * height, cudaMemcpyDeviceToHost);
+
+
+	cudaFree(oG);
+	cudaFree(opedge);
+	cudaFree(oimage_out);
+
+
+		// for(i=3; i<height-3; i++)
+		// for(j=3; j<width-3; j++)
+		// {
+		// 	image_out[i*width+j] = 0;
+		// 	if(G[i*width+j]>hithres && pedge[i*width+j])
+		// 		image_out[i*width+j] = 255;
+		// 	else if(pedge[i*width+j] && G[i*width+j]>=lowthres && G[i*width+j]<hithres)
+		// 		// check neighbours 3x3
+		// 		for (ii=-1;ii<=1; ii++)
+		// 			for (jj=-1;jj<=1; jj++)
+		// 				if (G[(i+ii)*width+j+jj]>hithres)
+		// 					image_out[i*width+j] = 255;
+		// }
 
 
 }
@@ -358,10 +456,8 @@ void lane_assist_GPU(uint8_t *im, int height, int width,
 	int threshold;
 
 	/* Canny */
-	canny(im, imEdge,
-		NR, G, phi, Gx, Gy, pedge,
-		1000.0f, //level
-		height, width);
+	canny(im, imEdge, 1000.0f, //level
+		height, width/* , G, pedge */);
 
 
 	
