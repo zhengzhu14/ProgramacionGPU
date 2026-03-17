@@ -241,7 +241,7 @@ __global__ void hysteresis_thresholding(float* iG, uint8_t* ipedge, uint8_t* oim
 
 		imo+= 255*(!(g > hithres && pedge) && 
 				(pedge && g >=lowthres && g<hithres) &&
-				((igs[sy-1][sx-1] > hithres) || (igs[sy-1][sx]>hithres) || (igs[sy-1][sx+1])
+				((igs[sy-1][sx-1] > hithres) || (igs[sy-1][sx]>hithres) || (igs[sy-1][sx+1]>hithres)
 				|| (igs[sy][sx-1]> hithres) || (igs[sy][sx]> hithres) || (igs[sy][sx+1]> hithres)
 				|| (igs[sy + 1][sx-1]> hithres) || (igs[sy+1][sx]> hithres) || (igs[sy+1][sx+1]> hithres)));
 
@@ -252,7 +252,7 @@ __global__ void hysteresis_thresholding(float* iG, uint8_t* ipedge, uint8_t* oim
 }
 
 void canny(uint8_t *im, uint8_t *image_out,float level,
-	int height, int width/*, float* G, uint8_t* pedge*/)
+	int height, int width, float* G, uint8_t* pedge, float* NR, float *phi )
 {	
 
 	int i, j;
@@ -260,7 +260,6 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	//float PI = 3.141593;
 
 	float lowthres, hithres;
-
 
 	//Reduccion de ruido
 	//Matriz de salida
@@ -278,9 +277,6 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 
 	cudaDeviceSynchronize(); //Sincronizo
 
-	//cudaMemcpy(NR, oNR, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
-
-	//cudaFree(oNR);
 
 	//Intensidad de Gradiente
 	float *ophi;
@@ -294,9 +290,6 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 
 	cudaFree(oNR); //Libero este espacio de memoria que no se va a usar mas
 
-	// cudaMemcpy(phi, ophi, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
-	// cudaMemcpy(G, oG, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
-
 	uint8_t *opedge;
 	cudaMalloc(&opedge, sizeof(uint8_t) * width * height);
 
@@ -305,9 +298,6 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	cudaDeviceSynchronize();
 	
 	cudaFree(ophi); //Libero memoria no usada
-
-	// cudaMemcpy(G, oG, sizeof(float)* width * height, cudaMemcpyDeviceToHost);
-	// cudaMemcpy(pedge, opedge, sizeof(uint8_t) * width * height, cudaMemcpyDeviceToHost);
 
 	// Hysteresis Thresholding
 	lowthres = level/2;
@@ -329,6 +319,8 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	cudaFree(oimage_out);
 
 
+}
+
 		// for(i=3; i<height-3; i++)
 		// for(j=3; j<width-3; j++)
 		// {
@@ -343,8 +335,6 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 		// 					image_out[i*width+j] = 255;
 		// }
 
-
-}
 
 
 void houghtransform(uint8_t *im, int width, int height, uint32_t *accumulators, int accu_width, int accu_height, 
@@ -457,7 +447,7 @@ void lane_assist_GPU(uint8_t *im, int height, int width,
 
 	/* Canny */
 	canny(im, imEdge, 1000.0f, //level
-		height, width/* , G, pedge */);
+		height, width , G, pedge, NR, phi);
 
 
 	
