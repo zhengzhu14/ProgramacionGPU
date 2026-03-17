@@ -42,7 +42,6 @@ int main(int argc, char **argv)
 		printf("./exec image.png [c/g]\n");
 		exit(-1);
 	}
-
 	/* Read images */
 	imtmp = read_png_fileRGB(argv[1], &width, &height);
 	im    = image_RGB2BW(imtmp, height, width);
@@ -77,10 +76,14 @@ int main(int argc, char **argv)
 			break;
 		case 'g':
 			t0 = get_time();
-			lane_assist_GPU(im, height, width,
+			lane_assist_GPU(im, height, width, 
+				imEdge, NR, G, phi, Gx, Gy, pedge,
+				sin_table, cos_table,
+				accum, accu_height, accu_width,
 				x1, y1, x2, y2, &nlines);
-                        t1 = get_time();
+            t1 = get_time();
 			printf("GPU Exection time %f ms.\n", t1-t0);
+			
 			break;
 		default:
 			printf("Not Implemented yet!!\n");
@@ -89,7 +92,9 @@ int main(int argc, char **argv)
 	for (int l=0; l<nlines; l++)
 		printf("(x1,y1)=(%d,%d) (x2,y2)=(%d,%d)\n", x1[l], y1[l], x2[l], y2[l]);
 
+	
+
 	draw_lines(imtmp, width, height, x1, y1, x2, y2, nlines);
 
-	write_png_fileRGB("out.png", imtmp, width, height);
+	write_png_fileRGB("out1.png", imtmp, width, height);
 }
