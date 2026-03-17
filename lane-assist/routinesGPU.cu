@@ -264,7 +264,8 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	//Reduccion de ruido
 	//Matriz de salida
 	float* oNR;
-	cudaMalloc((void**)&oNR, sizeof(float)* width * height);
+	cudaMalloc(&oNR, sizeof(float)* width * height);
+
 
 	uint8_t* imd;
 	cudaMalloc(&imd, sizeof(uint8_t) * width * height);
@@ -283,6 +284,7 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	float *oG;
 	cudaMalloc(&ophi, sizeof(float) * width * height);
 	cudaMalloc(&oG, sizeof(float) * width * height);
+
 
 	intensityGradient<<<dimGrid, dimBlock>>>(oNR, ophi, oG, height, width);
 
