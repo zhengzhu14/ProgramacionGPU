@@ -272,7 +272,10 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	cudaMemcpy(imd, im, sizeof(uint8_t) * width * height, cudaMemcpyHostToDevice);
 
 	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
-	dim3 dimGrid(width / dimBlock.x, height / dimBlock.y);
+	dim3 dimGrid(
+    	(width  + BLOCK_SIZE - 1) / BLOCK_SIZE,
+    	(height + BLOCK_SIZE - 1) / BLOCK_SIZE
+	);
 
 	noise_red<<<dimGrid, dimBlock>>>(imd, oNR, height, width);
 
