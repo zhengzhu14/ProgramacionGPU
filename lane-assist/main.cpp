@@ -33,9 +33,6 @@ int main(int argc, char **argv)
 	int nlines=0; 
 	int x1[10], x2[10], y1[10], y2[10];
 
-	int wnlines = 0;
-	int wx1[10], wx2[10], wy1[10], wy2[10];
-
 	int l;
 	double t0, t1;
 
@@ -85,7 +82,8 @@ int main(int argc, char **argv)
 				imEdge, NR, G, phi, Gx, Gy, pedge,
 				sin_table, cos_table,
 				accum, accu_height, accu_width,
-				wx1, wy1, wx2, wy2, &wnlines);
+				x1, y1, x2, y2, &nlines);
+				nlines = 0;
 			}
 			//Ejecuciones de Warm-up
 
