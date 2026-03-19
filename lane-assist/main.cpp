@@ -32,6 +32,10 @@ int main(int argc, char **argv)
 	float sin_table[180], cos_table[180];
 	int nlines=0; 
 	int x1[10], x2[10], y1[10], y2[10];
+
+	int wnlines = 0;
+	int wx1[10], wx2[10], wy1[10], wy2[10];
+
 	int l;
 	double t0, t1;
 
@@ -75,13 +79,24 @@ int main(int argc, char **argv)
 			printf("CPU Exection time %f ms.\n", t1-t0);
 			break;
 		case 'g':
+			//warmup
+			for (int i = 0; i < 2; ++i){
+				lane_assist_GPU(im, height, width, 
+				imEdge, NR, G, phi, Gx, Gy, pedge,
+				sin_table, cos_table,
+				accum, accu_height, accu_width,
+				wx1, wy1, wx2, wy2, &wnlines);
+			}
+			//Ejecuciones de Warm-up
+
+			
 			t0 = get_time();
 			lane_assist_GPU(im, height, width, 
 				imEdge, NR, G, phi, Gx, Gy, pedge,
 				sin_table, cos_table,
 				accum, accu_height, accu_width,
 				x1, y1, x2, y2, &nlines);
-            t1 = get_time();
+			t1 = get_time();
 			printf("GPU Exection time %f ms.\n", t1-t0);
 			
 			break;
@@ -96,5 +111,5 @@ int main(int argc, char **argv)
 
 	draw_lines(imtmp, width, height, x1, y1, x2, y2, nlines);
 
-	write_png_fileRGB("out3.png", imtmp, width, height);
+	write_png_fileRGB("out4.png", imtmp, width, height);
 }

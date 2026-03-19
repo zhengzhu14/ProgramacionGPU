@@ -285,14 +285,13 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 
 	cudaDeviceSynchronize(); //Sincronizo
 
-
 	//Intensidad de Gradiente
 	float *ophi;
 	float *oG;
 	cudaMalloc(&ophi, sizeof(float) * width * height);
 	cudaMalloc(&oG, sizeof(float) * width * height);
 
-
+	
 	intensityGradient<<<dimGrid, dimBlock>>>(oNR, ophi, oG, height, width);
 
 	cudaDeviceSynchronize(); //Sincronizo
@@ -321,7 +320,6 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(image_out, oimage_out, sizeof(uint8_t) * width * height, cudaMemcpyDeviceToHost);
-
 
 	cudaFree(oG);
 	cudaFree(opedge);
@@ -354,6 +352,7 @@ __global__ void hough_kernel(uint8_t *im, uint32_t *accumulators, int width, int
     }
 }
 
+
 void houghtransform(uint8_t *im, int width, int height, uint32_t *accumulators, int accu_width,       
                 int accu_height, float *sin_table, float *cos_table)
 {
@@ -363,7 +362,7 @@ void houghtransform(uint8_t *im, int width, int height, uint32_t *accumulators, 
     float center_y = height / 2.0f;
 
 	// Inicializamos acumulador
-    memset(accumulators, 0, sizeof(uint32_t) * accu_width * accu_height);
+    //memset(accumulators, 0, sizeof(uint32_t) * accu_width * accu_height);
 
     // Copiamos las tablas trigonometricas a memoria constante del device
     cudaMemcpyToSymbol(d_sin_table, sin_table, 180 * sizeof(float));
