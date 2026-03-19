@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 			//warmup
 			for (int i = 0; i < 2; ++i){
 				lane_assist_GPU(im, height, width, 
-				imEdge, NR, G, phi, Gx, Gy, pedge,
+				imEdge,
 				sin_table, cos_table,
 				accum, accu_height, accu_width,
 				x1, y1, x2, y2, &nlines);
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 			
 			t0 = get_time();
 			lane_assist_GPU(im, height, width, 
-				imEdge, NR, G, phi, Gx, Gy, pedge,
+				imEdge,
 				sin_table, cos_table,
 				accum, accu_height, accu_width,
 				x1, y1, x2, y2, &nlines);
@@ -109,5 +109,5 @@ int main(int argc, char **argv)
 
 	draw_lines(imtmp, width, height, x1, y1, x2, y2, nlines);
 
-	write_png_fileRGB("out4.png", imtmp, width, height);
+	write_png_fileRGB("out5.png", imtmp, width, height);
 }
