@@ -256,7 +256,8 @@ __global__ void hysteresis_thresholding(float* iG, uint8_t* ipedge, uint8_t* oim
 }
 
 void canny(uint8_t *im, uint8_t *image_out,float level,
-	int height, int width, float* h2d, float *kernels_ms, float *d2h, uint8_t* dimage_out)
+	int height, int width, float* h2d, float *kernels_ms, float *d2h,
+	cudaEvent_t start, cudaEvent_t stop)
 {	
 
 	float ms = 0.0;
@@ -264,7 +265,8 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	float lowthres, hithres;
 
 	uint8_t* imd;
-	uint8_t *oimage_out;
+
+
 	//Reduccion de ruido
 	//Matriz de salida
 	float* oNR;
@@ -278,18 +280,13 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	cudaMalloc(&ophi, sizeof(float) * width * height);
 	cudaMalloc(&oG, sizeof(float) * width * height);
 	cudaMalloc(&opedge, sizeof(uint8_t) * width * height);
-	cudaMalloc(&oimage_out, sizeof(uint8_t) * width * height);
 
-
-	cudaEvent_t start, stop;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
 
 	cudaEventRecord(start);
 	cudaMemcpy(imd, im, sizeof(uint8_t) * width * height, cudaMemcpyHostToDevice);
 	cudaEventRecord(stop);
+	cudaEventSynchronize(stop); //Sincronizo
 	cudaEventElapsedTime(&ms, start, stop);
-
 	*h2d += ms;
 
 	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
@@ -303,6 +300,8 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	cudaEventRecord(stop);
 	cudaEventSynchronize(stop); //Sincronizo
 	cudaEventElapsedTime(&ms, start, stop);
+
+	
 	*kernels_ms += ms;
 
 	//cudaDeviceSynchronize(); //Sincronizo
@@ -333,7 +332,7 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	
 
 	cudaEventRecord(start);
-	hysteresis_thresholding<<<dimGrid, dimBlock>>>(oG, opedge, oimage_out, height, width,
+	hysteresis_thresholding<<<dimGrid, dimBlock>>>(oG, opedge, image_out, height, width,
 												lowthres, hithres);
 	cudaEventRecord(stop);
 	cudaEventSynchronize(stop); //Sincronizo
@@ -343,20 +342,18 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 	//cudaDeviceSynchronize();
 
 
-	cudaEventRecord(start);
-	cudaMemcpy(image_out, oimage_out, sizeof(uint8_t) * width * height, cudaMemcpyDeviceToHost);
+	/* cudaEventRecord(start);
+	cudaMemcpy(image_out, dimage_out, sizeof(uint8_t) * width * height, cudaMemcpyDeviceToHost);
 	cudaEventRecord(stop);
+	//cudaEventSynchronize(stop); //Sincronizo
 	cudaEventElapsedTime(&ms, start, stop);
-	*d2h += ms;
+	*d2h += ms; */
  
-	dimage_out = oimage_out;
 	
 	cudaFree(ophi); //Libero memoria no usada
 	cudaFree(oNR); //Libero este espacio de memoria que no se va a usar mas
 	cudaFree(oG);
 	cudaFree(opedge);
-	cudaFree(oimage_out);
-
 
 }
 
@@ -385,47 +382,63 @@ __global__ void hough_kernel(uint8_t *im, uint32_t *accumulators, int width, int
 }
 
 
-void houghtransform(uint8_t *im, int width, int height, uint32_t *accumulators, int accu_width,       
-                int accu_height, float *sin_table, float *cos_table, float* h2d, float *kernels_ms, float *d2h)
+void houghtransform(uint8_t *imd, int width, int height, uint32_t *accumulators, int accu_width,       
+                int accu_height, float *sin_table, float *cos_table, float* h2d, float *kernels_ms, float *d2h, 
+				cudaEvent_t start, cudaEvent_t stop)
 {
-    
+    float ms = 0.0;
+
     float hough_h  = (sqrtf(2.0f) * (float)(height > width ? height : width)) / 2.0f;
     float center_x = width  / 2.0f;
     float center_y = height / 2.0f;
 
-	uint8_t  *imd;
     uint32_t *accumd;
 
-    cudaMalloc(&imd,    sizeof(uint8_t)  * width * height);
     cudaMalloc(&accumd, sizeof(uint32_t) * accu_width * accu_height);
 
+	// Host a Device
+
+	cudaEventRecord(start);
     // Copiamos las tablas trigonometricas a memoria constante del device
     cudaMemcpyToSymbol(d_sin_table, sin_table, 180 * sizeof(float));
     cudaMemcpyToSymbol(d_cos_table, cos_table, 180 * sizeof(float));
 
-    
-
-	// Host a Device
-    cudaMemcpy(imd, im, sizeof(uint8_t) * width * height, cudaMemcpyHostToDevice);
     cudaMemset(accumd, 0, sizeof(uint32_t) * accu_width * accu_height);
+
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop); //Sincronizo
+	cudaEventElapsedTime(&ms, start, stop);
+	*h2d += ms;
+
 
     dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
     dim3 dimGrid((width  + BLOCK_SIZE - 1) / BLOCK_SIZE,
                  (height + BLOCK_SIZE - 1) / BLOCK_SIZE);
 	
 	
-
+	cudaEventRecord(start);
     hough_kernel<<<dimGrid, dimBlock>>>(imd, accumd, width, height, accu_width, hough_h, 
 									center_x, center_y);
+	
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop); //Sincronizo
+	cudaEventElapsedTime(&ms, start, stop);
+	*kernels_ms+=ms;
 
-    cudaDeviceSynchronize(); // Sincronizo
+    //cudaDeviceSynchronize(); // Sincronizo
+	
+
 
 	// Device a Host
+	cudaEventRecord(start);
     cudaMemcpy(accumulators, accumd, sizeof(uint32_t) * accu_width * accu_height,
             cudaMemcpyDeviceToHost);
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop); //Sincronizo
+	cudaEventElapsedTime(&ms, start, stop);
+	*d2h+=ms;
 
 	// Liberamos memoria
-    cudaFree(imd);
     cudaFree(accumd);
 }
 
@@ -504,7 +517,14 @@ void lane_assist_GPU(uint8_t *im, int height, int width,
 	uint32_t *accum, int accu_height, int accu_width,
 	int *x1, int *y1, int *x2, int *y2, int *nlines)
 {
+	//Matriz auxiliar de la imagen
 	uint8_t *dimage_out;
+	cudaMalloc(&dimage_out, sizeof(uint8_t)*height*width);
+
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
 	float h2d = 0.0;
 	float d2h = 0.0;
 	float kernels_ms = 0.0;
@@ -512,13 +532,20 @@ void lane_assist_GPU(uint8_t *im, int height, int width,
 	int threshold;
 	
 	/* Canny */
-	canny(im, imEdge, 1000.0f, //level
-		height, width, &h2d, &kernels_ms, &d2h, dimage_out);
+	canny(im, dimage_out, 1000.0f, //level
+		height, width, &h2d, &kernels_ms, &d2h, start, stop);
 
 	
-	houghtransform(imEdge, width, height, accum, accu_width, accu_height, sin_table, cos_table, &h2d, &kernels_ms, &d2h);
+	houghtransform(dimage_out, width, height, accum, 
+		accu_width, accu_height, sin_table, cos_table, &h2d, &kernels_ms, &d2h,
+		start, stop);
 
 
+	cudaFree(dimage_out);
+
+
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop); 
 	
 	if (width>height) threshold = width/6;
 	else threshold = height/6;
@@ -527,18 +554,7 @@ void lane_assist_GPU(uint8_t *im, int height, int width,
 		sin_table, cos_table,
 		x1, y1, x2, y2, nlines);
 
-
-
 	printf("Tiempos: H2D = %fms; kernels = %fms; D2H = %f ms    Total = %fms\n", h2d, kernels_ms, d2h, h2d + kernels_ms + d2h);
 	
 }
 
-// void line_asist_GPU(uint8_t *im, int height, int width,
-// 	uint8_t *imEdge, float *NR, float *G, float *phi, float *Gx, float *Gy, uint8_t *pedge,
-// 	float *sin_table, float *cos_table, 
-// 	uint32_t *accum, int accu_height, int accu_width,
-// 	int *x1, int *x2, int *y1, int *y2, int *nlines)
-// {
-
-// 	/* To do */
-// }

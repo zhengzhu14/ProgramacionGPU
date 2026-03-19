@@ -10,7 +10,9 @@
 /* Time */
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <chrono>
 
+#define EJECUCIONES 20
 
 static struct timeval tv0;
 double get_time()
@@ -20,6 +22,18 @@ double get_time()
 	t = ((tv0.tv_usec) + (tv0.tv_sec)*1000000);
 
 	return (t);
+}
+
+double get_time_ms() 
+{
+    // Using steady_clock for consistent measurement
+    auto now = std::chrono::steady_clock::now();
+    auto duration = now.time_since_epoch();
+    
+    // Cast to milliseconds
+    auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+    
+    return static_cast<double>(millis.count());
 }
 
  
@@ -35,6 +49,9 @@ int main(int argc, char **argv)
 
 	int l;
 	double t0, t1;
+
+	int warmup = 4;
+	double media = 0.0;
 
 
 	/* Only accept a concrete number of arguments */
@@ -66,18 +83,25 @@ int main(int argc, char **argv)
 
 	switch (argv[2][0]) {
 		case 'c':
-			t0 = get_time();
-			lane_assist_CPU(im, height, width, 
-				imEdge, NR, G, phi, Gx, Gy, pedge,
-				sin_table, cos_table,
-				accum, accu_height, accu_width,
-				x1, y1, x2, y2, &nlines);
-			t1 = get_time();
-			printf("CPU Exection time %f ms.\n", t1-t0);
+
+			for (int i = 0; i < EJECUCIONES; i++){
+				nlines = 0;
+				t0 = get_time_ms();
+				lane_assist_CPU(im, height, width, 
+					imEdge, NR, G, phi, Gx, Gy, pedge,
+					sin_table, cos_table,
+					accum, accu_height, accu_width,
+					x1, y1, x2, y2, &nlines);
+				t1 = get_time_ms();
+				media+=(t1 -t0);
+				
+			}
+			printf("CPU Exection time %f ms.\n", media/EJECUCIONES);
 			break;
 		case 'g':
 			//warmup
-			for (int i = 0; i < 2; ++i){
+			printf("EJECUCIONES DE WARM-UP\n");
+			for (int i = 0; i < warmup; ++i){
 				lane_assist_GPU(im, height, width, 
 				imEdge,
 				sin_table, cos_table,
@@ -85,17 +109,23 @@ int main(int argc, char **argv)
 				x1, y1, x2, y2, &nlines);
 				nlines = 0;
 			}
-			//Ejecuciones de Warm-up
-
 			
-			t0 = get_time();
-			lane_assist_GPU(im, height, width, 
-				imEdge,
-				sin_table, cos_table,
-				accum, accu_height, accu_width,
-				x1, y1, x2, y2, &nlines);
-			t1 = get_time();
-			printf("GPU Exection time %f ms.\n", t1-t0);
+			printf("\n");
+			printf("EJECUCIONES DE REALES\n");
+
+			for (int i = 0; i < EJECUCIONES; i++){
+				nlines = 0;
+				t0 = get_time_ms();
+				lane_assist_GPU(im, height, width, 
+					imEdge,
+					sin_table, cos_table,
+					accum, accu_height, accu_width,
+					x1, y1, x2, y2, &nlines);
+				t1 = get_time_ms();
+				media += (t1 - t0);
+			}
+			
+			printf("GPU Exection time %f ms.\n", media/EJECUCIONES);
 			
 			break;
 		default:
@@ -109,5 +139,5 @@ int main(int argc, char **argv)
 
 	draw_lines(imtmp, width, height, x1, y1, x2, y2, nlines);
 
-	write_png_fileRGB("out5.png", imtmp, width, height);
+	write_png_fileRGB("img0_GPU.png", imtmp, width, height);
 }
