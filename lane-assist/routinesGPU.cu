@@ -20,6 +20,10 @@
 
 #define PI 3.141593
 
+// Tablas trigonometricas para la Transformada de Hough
+__constant__ float d_sin_table[180];
+__constant__ float d_cos_table[180];
+
 __global__ void noise_red(uint8_t *im, float* oNR, int height, int width){
 	__shared__ float ims[NOISE_SHARED][NOISE_SHARED]; //Tamanyo (BLOCK_SIZE + 4)*(BLOCK_SIZE + 4)
 
@@ -326,34 +330,71 @@ void canny(uint8_t *im, uint8_t *image_out,float level,
 
 }
 
-
-void houghtransform(uint8_t *im, int width, int height, uint32_t *accumulators, int accu_width, int accu_height, 
-	float *sin_table, float *cos_table)
+__global__ void hough_kernel(uint8_t *im, uint32_t *accumulators, int width, int height,
+                        int accu_width, float hough_h, float center_x, float center_y)
 {
-	int i, j, theta;
 
-	float hough_h = ((sqrt(2.0) * (float)(height>width?height:width)) / 2.0);
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
 
-	for(i=0; i<accu_width*accu_height; i++)
-		accumulators[i]=0;	
+    if (i >= height || j >= width) return;
 
-	float center_x = width/2.0; 
-	float center_y = height/2.0;
-	for(i=0;i<height;i++)  
-	{  
-		for(j=0;j<width;j++)  
-		{  
-			if( im[ (i*width) + j] > 250 ) // Pixel is edge  
-			{  
-				for(theta=0;theta<180;theta++)  
-				{  
-					float rho = ( ((float)j - center_x) * cos_table[theta]) + (((float)i - center_y) * sin_table[theta]);
-					accumulators[ (int)((round(rho + hough_h) * 180.0)) + theta]++;
+    if (im[i * width + j] <= 250) return;
 
-				} 
-			} 
-		} 
-	}
+    float xf = (float)j - center_x;
+    float yf = (float)i - center_y;
+
+    for (int theta = 0; theta < 180; theta++)
+    {
+        float rho = xf * d_cos_table[theta] + yf * d_sin_table[theta];
+        int idx = (int)(roundf(rho + hough_h) * 180.0f) + theta;
+
+        if (idx >= 0 && idx < accu_width * (int)(2.0f * hough_h + 1))
+            atomicAdd(&accumulators[idx], 1u);
+    }
+}
+
+void houghtransform(uint8_t *im, int width, int height, uint32_t *accumulators, int accu_width,       
+                int accu_height, float *sin_table, float *cos_table)
+{
+    
+    float hough_h  = (sqrtf(2.0f) * (float)(height > width ? height : width)) / 2.0f;
+    float center_x = width  / 2.0f;
+    float center_y = height / 2.0f;
+
+	// Inicializamos acumulador
+    memset(accumulators, 0, sizeof(uint32_t) * accu_width * accu_height);
+
+    // Copiamos las tablas trigonometricas a memoria constante del device
+    cudaMemcpyToSymbol(d_sin_table, sin_table, 180 * sizeof(float));
+    cudaMemcpyToSymbol(d_cos_table, cos_table, 180 * sizeof(float));
+
+    uint8_t  *imd;
+    uint32_t *accumd;
+
+    cudaMalloc(&imd,    sizeof(uint8_t)  * width * height);
+    cudaMalloc(&accumd, sizeof(uint32_t) * accu_width * accu_height);
+
+	// Host a Device
+    cudaMemcpy(imd, im, sizeof(uint8_t) * width * height, cudaMemcpyHostToDevice);
+    cudaMemset(accumd, 0, sizeof(uint32_t) * accu_width * accu_height);
+
+    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 dimGrid((width  + BLOCK_SIZE - 1) / BLOCK_SIZE,
+                 (height + BLOCK_SIZE - 1) / BLOCK_SIZE);
+
+    hough_kernel<<<dimGrid, dimBlock>>>(imd, accumd, width, height, accu_width, hough_h, 
+									center_x, center_y);
+
+    cudaDeviceSynchronize(); // Sincronizo
+
+	// Device a Host
+    cudaMemcpy(accumulators, accumd, sizeof(uint32_t) * accu_width * accu_height,
+            cudaMemcpyDeviceToHost);
+
+	// Liberamos memoria
+    cudaFree(imd);
+    cudaFree(accumd);
 }
 
 
