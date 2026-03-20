@@ -14,6 +14,12 @@
 
 #define EJECUCIONES 20
 
+const char* IMG_EXTENSION = ".png";
+const char* CPU_EXTENSION = "_CPU";
+const char* GPU_EXTENSION = "_GPU";
+
+const char* FOLDER_EXTENSION = "imagenes/";
+
 static struct timeval tv0;
 double get_time()
 {
@@ -40,6 +46,8 @@ double get_time_ms()
 
 int main(int argc, char **argv)
 {
+	
+
 	uint8_t *imtmp, *im;
 	int width, height;
 
@@ -60,9 +68,18 @@ int main(int argc, char **argv)
 		printf("./exec image.png [c/g]\n");
 		exit(-1);
 	}
+
+	
+	size_t tam = strlen(argv[1]) + strlen(IMG_EXTENSION) + 1; 
+	char* imEntrada = (char*)malloc(tam);
+
+	snprintf(imEntrada, tam, "%s%s", argv[1], IMG_EXTENSION);
+
 	/* Read images */
-	imtmp = read_png_fileRGB(argv[1], &width, &height);
+	imtmp = read_png_fileRGB(imEntrada, &width, &height);
 	im    = image_RGB2BW(imtmp, height, width);
+
+	printf("Tamanyo de la imagen es:\n-Altura = %d.\n-Anchura = %d\n\n", height, width);
 
 	init_cos_sin_table(sin_table, cos_table, 180);	
 
@@ -81,9 +98,15 @@ int main(int argc, char **argv)
 	int accu_width  = 180;
 	uint32_t *accum = (uint32_t*)malloc(accu_width*accu_height*sizeof(uint32_t));
 
+
+
+	char* imSalida;
+	tam += strlen(FOLDER_EXTENSION);
 	switch (argv[2][0]) {
 		case 'c':
-
+			tam+= strlen(CPU_EXTENSION);
+			imSalida = (char*)malloc(tam);
+			snprintf(imSalida, tam, "%s%s%s%s", FOLDER_EXTENSION, argv[1], CPU_EXTENSION, IMG_EXTENSION);
 			for (int i = 0; i < EJECUCIONES; i++){
 				nlines = 0;
 				t0 = get_time_ms();
@@ -99,6 +122,9 @@ int main(int argc, char **argv)
 			printf("CPU Exection time %f ms.\n", media/EJECUCIONES);
 			break;
 		case 'g':
+			tam+= strlen(GPU_EXTENSION);
+			imSalida = (char*)malloc(tam);
+			snprintf(imSalida, tam, "%s%s%s%s", FOLDER_EXTENSION, argv[1], GPU_EXTENSION, IMG_EXTENSION);
 			//warmup
 			printf("EJECUCIONES DE WARM-UP\n");
 			for (int i = 0; i < warmup; ++i){
@@ -139,5 +165,8 @@ int main(int argc, char **argv)
 
 	draw_lines(imtmp, width, height, x1, y1, x2, y2, nlines);
 
-	write_png_fileRGB("img0_GPU.png", imtmp, width, height);
+	write_png_fileRGB(imSalida, imtmp, width, height);
+
+	free(imEntrada);
+	free(imSalida);
 }
