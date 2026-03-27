@@ -12,7 +12,7 @@ CFLAGS=-O3 -I.
 CXXFLAGS=-O3 -I.
 
 LIBS =-lpng -lm -lcuda -lcudart
-LDFLAGS = -L/usr/lib/wsl/lib -L/usr/local/cuda-12.8/targets/x86_64-linux/lib
+#LDFLAGS = -L/usr/lib/wsl/lib -L/usr/local/cuda-12.8/targets/x86_64-linux/lib
 
 SRC = png_io.o routinesCPU.o routinesGPU.o main.o
 	
@@ -27,8 +27,8 @@ SRC = png_io.o routinesCPU.o routinesGPU.o main.o
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 image: $(SRC) 
-	$(CXX) -o image.out  $(SRC) $(CXXFLAGS) $(LDFLAGS) $(LIBS) 
-#	$(CXX) -o image.out  $(SRC) $(CXXFLAGS)  $(LIBS) 
+#	$(CXX) -o image.out  $(SRC) $(CXXFLAGS) $(LDFLAGS) $(LIBS) 
+	$(CXX) -o image  $(SRC) $(CXXFLAGS)  $(LIBS) 
 
 clean:
-	rm -f *.o image.out
+	rm -f *.o image
