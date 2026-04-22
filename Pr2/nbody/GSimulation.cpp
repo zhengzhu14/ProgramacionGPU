@@ -187,7 +187,7 @@ void GSimulation :: get_acceleration_gpu(sycl::queue Q, int n)
           int global_j = j + local_idx;
 
           tile_pos_x[local_idx] = pos_x[global_j];
-          tile_pos_y[local_idx] = pos_x[global_j];
+          tile_pos_y[local_idx] = pos_y[global_j];
           tile_pos_z[local_idx] = pos_z[global_j];
 
           tile_mass[local_idx] = mass[global_j];
@@ -208,10 +208,12 @@ void GSimulation :: get_acceleration_gpu(sycl::queue Q, int n)
           }
           item.barrier();
 
-          acc_x[global_idx] = ax;
-          acc_y[global_idx] = ay;
-          acc_z[global_idx] = az;
+          
         }
+
+        acc_x[global_idx] = ax;
+        acc_y[global_idx] = ay;
+        acc_z[global_idx] = az;
         
       });
 
@@ -244,6 +246,80 @@ real_type GSimulation :: updateParticles(int n, real_type dt)
    }
    return energy;
 }
+
+real_type GSimulation :: updateParticles_gpu(sycl::queue Q, int n, real_type dt)
+{
+   int i;
+   real_type energy = 0;
+   
+   real_type *tmp_energy = malloc_shared<real_type>(1, Q);
+   *tmp_energy = 0;
+
+   auto vel_x = nparticles.vel_x;
+   auto vel_y = nparticles.vel_y;
+   auto vel_z = nparticles.vel_z;
+
+   auto acc_x = nparticles.acc_x;
+   auto acc_y = nparticles.acc_y;
+   auto acc_z = nparticles.acc_z;
+
+   auto pos_x = nparticles.pos_x;
+   auto pos_y = nparticles.pos_y;
+   auto pos_z = nparticles.pos_z;
+
+   auto mass = nparticles.mass;
+
+
+   Q.submit([&](handler & h){
+    h.parallel_for(n, [=](id<1> id){
+      int i = id[0];
+
+      real_type m = mass[i];
+      real_type vx = vel_x[i]; 
+      real_type vy = vel_y[i];
+      real_type vz = vel_z[i];
+
+      real_type ax = acc_x[i];
+      real_type ay = acc_y[i];
+      real_type az = acc_z[i];
+
+      real_type px = pos_x[i];
+      real_type py = pos_y[i];
+      real_type pz = pos_z[i];
+
+      vx += ax*dt;
+      vy += ay*dt;
+      vz += az*dt;
+
+      px += vx*dt;
+      py += vy*dt;
+      pz += vz*dt;
+      
+      real_type value = m*(vx*vx + vy*vy + vz*vz);
+
+      auto v = sycl::atomic_ref <real_type, sycl::memory_order::acq_rel,
+                                  sycl::memory_scope::device,
+                                  sycl::access::address_space::global_space> (*tmp_energy);
+
+      v.fetch_add(value);
+
+    });
+
+
+   }).wait(); 
+
+
+   energy += *tmp_energy;
+
+   free(tmp_energy, Q);
+
+   return energy;
+}
+
+
+
+
+
 
 void GSimulation :: start() 
 {
@@ -322,6 +398,8 @@ void GSimulation :: start()
     get_acceleration_gpu(Q, n);
 
     energy = updateParticles(n, dt);
+
+    //energy = updateParticles_gpu(Q, n, dt);
     _kenergy = 0.5 * energy; 
     
     ts1 += time.stop();
