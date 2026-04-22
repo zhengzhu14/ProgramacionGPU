@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < N; i++) {
         a[i] = static_cast<float>(i); // Inicialización
     }
+    
     {
         buffer<float, 1> buffer_a(a.data(), range<1>(N));
 
