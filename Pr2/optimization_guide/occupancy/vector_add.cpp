@@ -93,9 +93,11 @@ int main(int argc, char **argv) {
 
 	/* benchmarking */
 	auto start = std::chrono::steady_clock::now();
-	VectorAdd1(Q, a, b, c, 100, N);
+	VectorAdd1(Q, a, b, c, N, 100);
 	auto end = std::chrono::steady_clock::now();
 	printf("Time VectorAdd1=%ld usecs\n", (end - start).count());
+	if (!test(c_gt, c, N))
+			printf("Error in VectorAdd1\n");
 
 	for (int ng=1; ng<64; ng*=2) {
 		start = std::chrono::steady_clock::now();

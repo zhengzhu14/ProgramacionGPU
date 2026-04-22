@@ -21,8 +21,8 @@ void MatrixAdd1(sycl::queue &Q, int *a, int *b,
 	Q.submit([&](handler &h) { 
 		// Submit the kernel
 		h.parallel_for(range<2>(N, N), [=](id<2> item) {
-			auto i = item[?];
-			auto j = item[?];
+			auto i = item[0];
+			auto j = item[0];
 			for (int it = 0; it < iter; it++)
 				c[i*N+j] = a[i*N+j] + b[i*N+j];
 		});
@@ -39,7 +39,7 @@ void MatrixAdd2(sycl::queue &Q, int *a, int *b,
 			auto i = item[0];
 			auto j = item[1];
 			for (int it = 0; it < iter; it++)
-				c[?*N+?] = a[?*N+?] + b[?*N+?];
+				c[j*N+i] = a[j*N+i] + b[j*N+i];
 		});
 	}).wait();
 }
@@ -88,12 +88,12 @@ int main(int argc, char **argv) {
 
 	/* benchmarking */
 	auto start = std::chrono::steady_clock::now();
-	MatrixAdd1(Q, a, b, c, 100, N);
+	MatrixAdd1(Q, a, b, c, N, 100); //Suma de matrices por fila
 	auto end = std::chrono::steady_clock::now();
 	printf("Time VectorAdd1=%ld usecs\n", (end - start).count());
 
 	start = std::chrono::steady_clock::now();
-	MatrixAdd2(Q, a, b, c, 100, N);
+	MatrixAdd2(Q, a, b, c, N, 100); //Suma de matrices por columna
 	end = std::chrono::steady_clock::now();
 	printf("Time VectorAdd2=%ld usecs\n", (end - start).count());
 

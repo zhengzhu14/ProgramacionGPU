@@ -39,11 +39,24 @@ void matrix_mult_hierarchy(sycl::queue Q, float *a, float *b, float *c, int N)
 	// Create a command_group to issue command to the group
 	Q.submit([&](handler &h) {
 
-		range num_groups= range<2>(N/B, N/B); // N is a multiple of B
-		range group_size = range<2>(B, B);
+		range<2> num_groups= range<2>(N/B, N/B); // N is a multiple of B
+		range<2> group_size = range<2>(B, B);
 		
 		/* TODO: Create a hierarchy parallelism */
-		c[0] = 0.0f;
+		//c[0] = 0.0f;
+
+		h.parallel_for_work_group(num_groups, group_size, [=](group<2> grp){
+			int ib = grp.get_id(0);
+			int jb = grp.get_id(1);
+			grp.parallel_for_work_item([=] (h_item<2> it){
+				int i = ib*B + it.get_local_id(0);
+				int j = jb*B + it.get_local_id(1);
+				c[i*N + j] = 0.0f;
+				for (int k = 0; k < N; k++){
+					c[i*N + j] += a[i*N+k]*b[k*N+j];
+				}
+			});
+		});
 
 	}).wait();  // End of the queue commands we waint on the event reported.
 }
@@ -58,10 +71,36 @@ void matrix_mult_local(sycl::queue Q, float *a, float *b, float *c, int N)
 	// Create a command_group to issue command to the group
 	Q.submit([&](handler &h) {
 
-		/* TODO: Create local memory */
+		range global = range<2> (N, N);
+		range local = range <2> (tile_size, tile_size);
 
+		/* TODO: Create local memory */
+		local_accessor <float,2> tileA ({tile_size, tile_size}, h);
+		local_accessor <float, 2> tileB ({tile_size, tile_size}, h);
 		/* TODO: Submit the kernel */
-		c[0] = 0.0f;
+		h.parallel_for (nd_range<2> (global, local), [=](nd_item <2> item){
+			size_t row = item.get_global_id()[0];
+			size_t col = item.get_global_id()[1];
+
+			size_t li = item.get_local_id()[0];
+			size_t lj = item.get_local_id()[1];
+
+			float sum = 0.0f;
+
+			for (int kk = 0; kk < N; kk+=tile_size){
+				tileA[li][lj] = a[row*N + (lj + kk)];
+				tileB[li][lj] = b[(li + kk)*N + col];
+				item.barrier();
+
+				for (int k = 0; k < tile_size; ++k){
+					sum += tileA[li][k]*tileB[k][lj];
+				}
+				item.barrier();
+				
+			}
+			c[row*N + col] = sum;
+
+		});
 
 	}).wait();  // End of the queue commands we waint on the event reported.
 
