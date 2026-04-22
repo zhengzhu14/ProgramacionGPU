@@ -28,6 +28,7 @@
 #include <string>
 #include <sstream>
 #include <stdlib.h>
+#include <sycl/sycl.hpp>
 
 #include "Particle.hpp"
 
@@ -44,6 +45,7 @@ public:
   
 private:
   ParticleAoS *particles;
+  ParticleSoA nparticles;
   
   int       _npart;		//number of particles
   int	    _nsteps;		//number of integration steps
@@ -62,6 +64,9 @@ private:
   void init_mass();
 
   void get_acceleration(int n);
+  void get_acceleration_gpu(sycl::queue Q, int n);
+
+
   real_type updateParticles(int n, real_type dt);
     
   inline void set_npart(const int &N){ _npart = N; }
