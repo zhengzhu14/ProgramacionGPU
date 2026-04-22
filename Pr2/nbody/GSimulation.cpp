@@ -313,7 +313,7 @@ real_type GSimulation :: updateParticles_gpu(sycl::queue Q, int n, real_type dt)
 
       pos_x[i] = px;
       pos_y[i] = py;
-      pos_z[i] = py;
+      pos_z[i] = pz;
 
     });
 

@@ -65,3 +65,5 @@ dkms.conf
 
 
 .DS_Store
+
+*.x
