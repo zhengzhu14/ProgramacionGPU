@@ -303,6 +303,18 @@ real_type GSimulation :: updateParticles_gpu(sycl::queue Q, int n, real_type dt)
 
       v.fetch_add(value);
 
+      acc_x[i] = 0.0;
+      acc_y[i] = 0.0;
+      acc_z[i] = 0.0;
+
+      vel_x[i] = vx;
+      vel_y[i] = vy;
+      vel_z[i] = vz;
+
+      pos_x[i] = px;
+      pos_y[i] = py;
+      pos_z[i] = py;
+
     });
 
 
@@ -377,9 +389,9 @@ void GSimulation :: start()
     nparticles.vel_y[i] = particles[i].vel[1];
     nparticles.vel_z[i] = particles[i].vel[2];
 
-    nparticles.acc_x[0] = particles[i].acc[0]; 
-    nparticles.acc_y[0] = particles[i].acc[1]; 
-    nparticles.acc_z[0] = particles[i].acc[2]; 
+    nparticles.acc_x[i] = particles[i].acc[0]; 
+    nparticles.acc_y[i] = particles[i].acc[1]; 
+    nparticles.acc_z[i] = particles[i].acc[2]; 
 
     nparticles.mass[i] = particles[i].mass;
   }
@@ -397,9 +409,9 @@ void GSimulation :: start()
 
     get_acceleration_gpu(Q, n);
 
-    energy = updateParticles(n, dt);
+    //energy = updateParticles(n, dt);
 
-    //energy = updateParticles_gpu(Q, n, dt);
+    energy = updateParticles_gpu(Q, n, dt);
     _kenergy = 0.5 * energy; 
     
     ts1 += time.stop();
