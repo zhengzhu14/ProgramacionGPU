@@ -21,6 +21,15 @@
 #include "GSimulation.hpp"
 #include "cpu_time.hpp"
 
+#include <sycl/sycl.hpp>
+
+
+#define TILE_SIZE 256
+
+
+using  namespace  sycl;
+
+
 GSimulation :: GSimulation()
 {
   std::cout << "===============================" << std::endl;
@@ -127,6 +136,88 @@ void GSimulation :: get_acceleration(int n)
    }
 }
 
+
+
+void GSimulation :: get_acceleration_gpu(sycl::queue Q, int n)
+{
+   int i,j;
+
+   const float softeningSquared = 1e-3f;
+   const float G = 6.67259e-11f;
+
+   auto pos_x = nparticles.pos_x;
+   auto pos_y = nparticles.pos_y;
+   auto pos_z = nparticles.pos_z;
+
+   auto acc_x = nparticles.acc_x;
+   auto acc_y = nparticles.acc_y;
+   auto acc_z = nparticles.acc_z;
+
+   auto mass = nparticles.mass;
+
+   
+    Q.submit([&](handler & h){
+      range global = range <1> (n);
+      range local = range <1> (TILE_SIZE);
+
+      local_accessor<real_type, 1> tile_pos_x(range<1> (TILE_SIZE), h);
+      local_accessor<real_type, 1> tile_pos_y(range<1> (TILE_SIZE), h);
+      local_accessor<real_type, 1> tile_pos_z(range<1> (TILE_SIZE), h);
+
+      local_accessor<real_type, 1> tile_mass(range<1> (TILE_SIZE), h);
+
+      h.parallel_for(nd_range<1> (global, local), [=](nd_item <1> item){
+        int global_idx = item.get_global_id(0);
+
+        int local_idx = item.get_local_id(0);
+
+        real_type xi = pos_x[global_idx];
+        real_type yi = pos_y[global_idx];
+        real_type zi = pos_z[global_idx];
+
+        real_type ax = acc_x[global_idx];
+        real_type ay = acc_y[global_idx];
+        real_type az = acc_z[global_idx];
+
+        real_type distanceSqr = 0.0f;
+	      real_type distanceInv = 0.0f;
+        real_type dx, dy, dz;
+
+        for (int j = 0; j < n; j += TILE_SIZE){ //Suponemos que n es multiplo de TILE_SIZE
+          int global_j = j + local_idx;
+
+          tile_pos_x[local_idx] = pos_x[global_j];
+          tile_pos_y[local_idx] = pos_x[global_j];
+          tile_pos_z[local_idx] = pos_z[global_j];
+
+          tile_mass[local_idx] = mass[global_j];
+
+          item.barrier();
+
+          for (int jj = 0; jj < TILE_SIZE; ++jj){
+
+            dx = tile_pos_x[jj] - xi;	//1flop
+	          dy = tile_pos_y[jj] - yi;	//1flop	
+	          dz = tile_pos_z[jj] - zi;
+
+            distanceSqr = dx*dx + dy*dy + dz*dz + softeningSquared;	//6flops
+ 	          distanceInv = 1.0f / sqrtf(distanceSqr);			//1div+1sqrt
+            ax += dx * G * tile_mass[jj] * distanceInv * distanceInv * distanceInv; //6flops
+	          ay += dy * G * tile_mass[jj] * distanceInv * distanceInv * distanceInv; //6flops
+	          az += dz * G * tile_mass[jj] * distanceInv * distanceInv * distanceInv; //6flops
+          }
+          item.barrier();
+
+          acc_x[global_idx] = ax;
+          acc_y[global_idx] = ay;
+          acc_z[global_idx] = az;
+        }
+        
+      });
+
+    }).wait();
+}
+
 real_type GSimulation :: updateParticles(int n, real_type dt)
 {
    int i;
@@ -180,6 +271,45 @@ void GSimulation :: start()
   double gflops = 1e-9 * ( (11. + 18. ) * nd*nd  +  nd * 19. );
   double av=0.0, dev=0.0;
   int nf = 0;
+
+
+  //Inicializo las variables para ejecucion en SYCL 
+  sycl::queue Q(sycl::gpu_selector_v); //Creo la cola de ejecución
+
+  nparticles = ParticleSoA();
+
+  nparticles.pos_x = malloc_shared<real_type>(n, Q);
+  nparticles.pos_y = malloc_shared<real_type>(n, Q);
+  nparticles.pos_z = malloc_shared<real_type>(n, Q);
+
+  nparticles.vel_x = malloc_shared<real_type>(n, Q);
+  nparticles.vel_y = malloc_shared<real_type>(n, Q);
+  nparticles.vel_z = malloc_shared<real_type>(n, Q);
+
+  nparticles.acc_x = malloc_shared<real_type>(n, Q);
+  nparticles.acc_y = malloc_shared<real_type>(n, Q);
+  nparticles.acc_z = malloc_shared<real_type>(n, Q);
+
+  nparticles.mass = malloc_shared<real_type>(n, Q);
+
+  for (int i = 0; i < n; ++i){
+    nparticles.pos_x[i] = particles[i].pos[0];
+    nparticles.pos_y[i] = particles[i].pos[1];
+    nparticles.pos_z[i] = particles[i].pos[2];
+
+    nparticles.vel_x[i] = particles[i].vel[0];
+    nparticles.vel_y[i] = particles[i].vel[1];
+    nparticles.vel_z[i] = particles[i].vel[2];
+
+    nparticles.acc_x[0] = particles[i].acc[0]; 
+    nparticles.acc_y[0] = particles[i].acc[1]; 
+    nparticles.acc_z[0] = particles[i].acc[2]; 
+
+    nparticles.mass[i] = particles[i].mass;
+  }
+  
+
+
   
   const double t0 = time.start();
   for (int s=1; s<=get_nsteps(); ++s)
@@ -187,7 +317,9 @@ void GSimulation :: start()
    ts0 += time.start(); 
 
 
-    get_acceleration(n);
+    //get_acceleration(n);
+
+    get_acceleration_gpu(Q, n);
 
     energy = updateParticles(n, dt);
     _kenergy = 0.5 * energy; 
@@ -220,7 +352,7 @@ void GSimulation :: start()
   _totFlops = gflops*get_nsteps();
   
   av/=(double)(nf-2);
-  dev=sqrt(dev/(double)(nf-2)-av*av);
+  dev= std::sqrt(dev/(double)(nf-2)-av*av);
   
 
   std::cout << std::endl;
@@ -228,6 +360,17 @@ void GSimulation :: start()
   std::cout << "# Average Performance : " << av << " +- " <<  dev << std::endl;
   std::cout << "===============================" << std::endl;
 
+
+  free(nparticles.pos_x, Q);
+  free(nparticles.pos_y, Q);
+  free(nparticles.pos_z, Q);
+  free(nparticles.acc_x, Q);
+  free(nparticles.acc_y, Q);
+  free(nparticles.acc_z, Q);
+  free(nparticles.vel_x, Q);
+  free(nparticles.vel_y, Q);
+  free(nparticles.vel_z, Q);
+  free(nparticles.mass, Q);
 }
 
 
