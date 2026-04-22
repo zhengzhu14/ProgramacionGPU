@@ -68,6 +68,7 @@ private:
 
 
   real_type updateParticles(int n, real_type dt);
+  real_type updateParticles_gpu(sycl::queue Q, int n, real_type dt);
     
   inline void set_npart(const int &N){ _npart = N; }
   inline int get_npart() const {return _npart; }
