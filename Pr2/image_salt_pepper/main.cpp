@@ -218,6 +218,19 @@ void remove_noise(float *im, float *image_out,
 		}
 }
 
+
+void dummy(sycl::queue &Q, int N) {
+
+	// Create a kernel to perform c=a+b
+	Q.submit([&](handler &h) { 
+		// Submit the kernel
+		h.single_task([=]() {
+			int tmp = N;
+		});
+	}).wait();       // End of the queue commands we waint on the event reported.
+}
+
+
 int main(int argc, char **argv) {
 
 	int width, height;
@@ -277,6 +290,7 @@ int main(int argc, char **argv) {
 			break;
 		case 'c':
 		case 'g':
+			dummy(Q, width*height); //He agregado un dummy para calentar los paths
 			t0 = get_time();
 			remove_noise_SYCL(Q, imageBW, imageOUT,
 				0.1, 3, height, width);
