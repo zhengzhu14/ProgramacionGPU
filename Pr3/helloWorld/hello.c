@@ -25,9 +25,9 @@ int main() {
       a[i] = i;
     }
    // Compute on the GPU if OpenACC support - host if not
-   #pragma acc kernels copy(b[0:N])
+   #pragma acc kernels copyin(a[0:N]) copyout(b[0:N])
    for (int i = 0; i < N; i++) {
-      b[i] = i;
+      b[i] = a[i];
     }
    for (int i = 0; i < N; i++) {
       if (a[i] != b[i])  {
