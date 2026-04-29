@@ -33,7 +33,7 @@ void randomizeBodies(body *data, int n) {
 }
 
 void bodyForce(body *p, float dt, int n) {
-
+#pragma acc kernels loop independent present(p)
 	for (int i = 0; i < n; i++) { 
 		float Fx = 0.0f; float Fy = 0.0f; float Fz = 0.0f;
 
@@ -60,6 +60,7 @@ void bodyForce(body *p, float dt, int n) {
 }
 
 void integrate(body *p, float dt, int n){
+#pragma acc kernels loop independent present(p)
 	for (int i = 0 ; i < n; i++) {
 		p[i].x += p[i].vx*dt;
 		p[i].y += p[i].vy*dt;
@@ -81,11 +82,13 @@ int main(const int argc, const char** argv) {
 
 	double t0 = get_time();
 
+#pragma acc data copy(p[0:nBodies])
+{
 	for (int iter = 1; iter <= nIters; iter++) {
 		bodyForce(p, dt, nBodies); // compute interbody forces
 		integrate(p, dt, nBodies); // integrate position
 	}
-
+}
 	double totalTime = get_time()-t0; 
 	printf("%d Bodies with %d iterations: %0.3f Millions Interactions/second\n", nBodies, nIters, 1e-6 * nBodies * nBodies / totalTime);
 

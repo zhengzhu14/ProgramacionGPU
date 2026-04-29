@@ -2,13 +2,14 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <sys/time.h>
 #ifdef _OPENACC
 #include <openacc.h>
 #endif
 
 
 double get_time(){
-	static struct timeval 	tv0;
+	static struct timeval tv0;
 	double time_, time;
 
 	gettimeofday(&tv0,(struct timezone*)0);
@@ -151,11 +152,11 @@ void border(float *im, float *image_out,
 	filt[3] = -1.0; filt[4] =  4.0; filt[5] = -1.0;
 	filt[6] =  0.0; filt[7] = -1.0; filt[8] =  0.0;
 
-#pragma acc ...
+#pragma acc data copyin(im[0:height*width]) copyout (image_out[0:height*width])
 {
 
 	t0 = get_time();
-
+#pragma acc parallel loop collapse(2)
 	for(i=ws2; i<height-ws2; i++)
 	{
 		for(j=ws2; j<width-ws2; j++)
@@ -175,6 +176,7 @@ void border(float *im, float *image_out,
 				image_out[i*width + j] = 0.0;
 		}
 	}
+
 	t1 = get_time();
 	printf("Exection time %f ms.\n", t1-t0);
 
