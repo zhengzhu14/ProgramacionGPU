@@ -52,7 +52,7 @@ int main(int argc, char** argv)
 
 	int iter = 0;
 
-#pragma acc ...
+#pragma acc data copy(A, Anew)
 {
 	StartTimer();
 
@@ -60,6 +60,7 @@ int main(int argc, char** argv)
 	{
 		error = 0.0;
 
+		#pragma acc parallel loop collapse(2) reduction(max:error)
 		for( int j = 1; j < n-1; j++)
 		{
 			for( int i = 1; i < m-1; i++ )
@@ -70,6 +71,7 @@ int main(int argc, char** argv)
 			}
 		}
 
+		#pragma acc parallel loop collapse(2)
 		for( int j = 1; j < n-1; j++)
 		{
 			for( int i = 1; i < m-1; i++ )
